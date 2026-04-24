@@ -95,6 +95,7 @@ import de.ovgu.featureide.fm.core.io.EclipseFileSystem;
 import de.ovgu.featureide.fm.core.io.IPersistentFormat;
 import de.ovgu.featureide.fm.core.io.Problem;
 import de.ovgu.featureide.fm.core.io.ProblemList;
+import de.ovgu.featureide.fm.core.io.uvl.UVLFeatureModelFormat;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 import de.ovgu.featureide.fm.ui.FMUIPlugin;
 import de.ovgu.featureide.fm.ui.GraphicsExporter;
@@ -428,8 +429,9 @@ public class FeatureModelEditor extends MultiPageEditorPart implements IEventLis
 			currentPageIndex = 0;
 			// if there are errors in the model file, go to source page
 			final ProblemList problems = checkModel(textEditor.getCurrentContent());
-			if (problems.containsError()) {
+			if (problems.containsError() || UVLFeatureModelFormat.containsUnsupportedFeatureCardinality(problems)) {
 				createModelFileMarkers(problems);
+				currentPageIndex = textEditor.getIndex();
 				setActivePage(textEditor.getIndex());
 			} else {
 				diagramEditor.getViewer().getControl().getDisplay().asyncExec(new Runnable() {
@@ -619,6 +621,10 @@ public class FeatureModelEditor extends MultiPageEditorPart implements IEventLis
 				FMCorePlugin.getDefault().logError(e);
 			}
 		}
+	}
+
+	boolean isDiagramEditorPage(int pageIndex) {
+		return pageIndex == getDiagramEditorIndex();
 	}
 
 	private int getDiagramEditorIndex() {

@@ -40,6 +40,7 @@ import org.eclipse.ui.texteditor.IDocumentProvider;
 import de.ovgu.featureide.fm.core.base.event.FeatureIDEEvent;
 import de.ovgu.featureide.fm.core.io.Problem;
 import de.ovgu.featureide.fm.core.io.ProblemList;
+import de.ovgu.featureide.fm.core.io.uvl.UVLFeatureModelFormat;
 import de.ovgu.featureide.fm.core.io.manager.FeatureModelManager;
 import de.ovgu.featureide.fm.ui.FMUIPlugin;
 import de.ovgu.featureide.fm.ui.editors.featuremodel.operations.FeatureModelOperationWrapper;
@@ -155,6 +156,9 @@ public class FeatureModelTextEditorPage extends TextEditor implements IFeatureMo
 			createMarkers(problems);
 		} else {
 			deleteMarkers(getDocumentProvider().getAnnotationModel(getEditorInput()));
+		}
+		if (featureModelEditor.isDiagramEditorPage(newPage) && UVLFeatureModelFormat.containsUnsupportedFeatureCardinality(problems)) {
+			return false;
 		}
 		return !problems.containsError();
 	}
