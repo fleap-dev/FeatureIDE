@@ -82,6 +82,8 @@ import de.vill.model.constraint.ParenthesisConstraint;
  */
 public class UVLFeatureModelFormat extends AFeatureModelFormat {
 
+	public static final String UNSUPPORTED_FEATURE_CARDINALITY = "Feature cardinalities are not supported by FeatureIDE.";
+
 	public static final String ID = PluginID.PLUGIN_ID + ".format.fm." + UVLFeatureModelFormat.class.getSimpleName();
 	public static final String FILE_EXTENSION = "uvl";
 
@@ -178,8 +180,25 @@ public class UVLFeatureModelFormat extends AFeatureModelFormat {
 		// final Map<String, UsedModel> externalModels = fm.getExternalModels();
 	}
 
+	public static boolean containsUnsupportedFeatureCardinality(ProblemList problems) {
+		for (final Problem problem : problems) {
+			if ((problem.getMessage() != null) && problem.getMessage().startsWith(UNSUPPORTED_FEATURE_CARDINALITY)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean hasFeatureCardinality(Feature feature) {
+		return (feature.getLowerBound() != null) || (feature.getUpperBound() != null);
+	}
+
 	private IFeature parseFeature(MultiFeatureModel fm, Feature uvlFeature, IFeature parentFeature) {
 		final MultiFeature feature = factory.createFeature(fm, uvlFeature.getReferenceFromSpecificSubmodel(""));
+		if (hasFeatureCardinality(uvlFeature)) {
+			pl.add(new Problem(String.format("%s Feature %s uses cardinality [%s..%s].", UNSUPPORTED_FEATURE_CARDINALITY,
+					uvlFeature.getReferenceFromSpecificSubmodel(""), uvlFeature.getLowerBound(), uvlFeature.getUpperBound()), 0, Severity.WARNING));
+		}
 		fm.addFeature(feature);
 
 		final Attribute<?> featureDescription = uvlFeature.getAttributes().get(FEATURE_DESCRIPTION_ATTRIBUTE_NAME);
