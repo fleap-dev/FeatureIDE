@@ -72,8 +72,8 @@ public class TFeatureModelSlicing {
 	@Test
 	public final void testTimeout() {
 		final IFeatureModel featureModel = Commons.loadBenchmarkFeatureModelFromFile("embtoolkit.xml");
-		assertNull(LongRunningWrapper.runMethod(new SliceFeatureModel(featureModel, List.of(), true, 1)));
-		assertNull(LongRunningWrapper.runMethod(new SliceFeatureModel(new FeatureModelFormula(featureModel), List.of(), true, 1)));
+		assertNull(LongRunningWrapper.runMethod(new SliceFeatureModel(featureModel, Collections.emptyList(), true, 1)));
+		assertNull(LongRunningWrapper.runMethod(new SliceFeatureModel(new FeatureModelFormula(featureModel), Collections.emptyList(), true, 1)));
 	}
 
 	private void testModel(String modelFileName) {

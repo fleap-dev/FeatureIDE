@@ -158,7 +158,7 @@ public class CNFSlicer extends AbstractManipulator {
 		createClauseLists();
 
 		if (!prepareHeuristics()) {
-			return new CNF(mapping, new ClauseList(List.of(new LiteralSet())));
+			return new CNF(mapping, new ClauseList(Collections.singletonList(new LiteralSet())));
 		}
 
 //		final CNF cleanCNF = new CNF(mapping, cleanClauseList);
