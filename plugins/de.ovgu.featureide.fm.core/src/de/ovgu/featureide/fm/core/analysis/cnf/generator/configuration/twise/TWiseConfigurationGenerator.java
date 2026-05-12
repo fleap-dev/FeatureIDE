@@ -291,6 +291,10 @@ public class TWiseConfigurationGenerator extends AConfigurationGenerator impleme
 				newConfiguration(solverSolutions[0]);
 			}
 		} else {
+			final int progressTotal = (int) Math.min(numberOfCombinations, 10_000);
+			long reportedProgress = 0;
+			monitor.setTaskName("Covering t-wise combinations");
+			monitor.setRemainingWork(progressTotal);
 			coveredCount = 0;
 			invalidCount = 0;
 
@@ -329,6 +333,14 @@ public class TWiseConfigurationGenerator extends AConfigurationGenerator impleme
 						}
 					}
 					count++;
+					final long targetProgress = (long) (((double) count * progressTotal) / numberOfCombinations);
+					if (targetProgress > reportedProgress) {
+						monitor.step((int) (targetProgress - reportedProgress));
+						reportedProgress = targetProgress;
+					}
+				}
+				if (reportedProgress < progressTotal) {
+					monitor.done();
 				}
 
 				int coveredIndex = -1;
