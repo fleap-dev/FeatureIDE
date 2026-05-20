@@ -26,7 +26,8 @@ import de.ovgu.featureide.fm.core.job.monitor.IMonitor;
 public final class TWiseCli {
 
 	private static final String MAIN_CLASS = "example.TWiseCli";
-	private static final Pattern DIMACS_VARIABLE_COMMENT = Pattern.compile("^c\\s+(\\d+)(\\$?)\\s+(.+)$");
+	private static final Pattern OLD_DIMACS_VARIABLE_COMMENT = Pattern.compile("^c\\s+(\\d+)(\\$?)\\s+(.+)$");
+	private static final Pattern NEW_DIMACS_VARIABLE_COMMENT = Pattern.compile("^c\\s+var\\s+(\\d+)\\s+(.+)$");
 
 	private TWiseCli() {
 	}
@@ -41,7 +42,7 @@ public final class TWiseCli {
 			throw new IllegalArgumentException("Missing required option: --output <file>");
 		}
 
-		final ParsedCnf input = options.cnfFile == null ? new ParsedCnf(createExampleCnf(), null) : readCnf(options.cnfFile);
+		final ParsedCnf input = options.cnfFile == null ? new ParsedCnf(createExampleCnf(), null) : readCnf(options.cnfFile, options.oldDimacs);
 		final CNF cnf = input.cnf;
 		final TWiseConfigurationGenerator generator = input.hasFeatureFilter()
 			? new TWiseConfigurationGenerator(cnf, TWiseConfigurationGenerator.convertLiterals(input.createCoverageLiterals()), options.t, options.limit)
@@ -73,10 +74,21 @@ public final class TWiseCli {
 		return new CNF(variables, clauses);
 	}
 
+	private static ParsedCnf readCnf(Path path, boolean oldDimacs) throws IOException {
+		return oldDimacs ? readOldDimacsCnf(path) : readCnf(path);
+	}
+
 	private static ParsedCnf readCnf(Path path) throws IOException {
+		return readCnf(path, new DimacsVariableDirectory(DimacsVariableDirectory.Syntax.NEW));
+	}
+
+	private static ParsedCnf readOldDimacsCnf(Path path) throws IOException {
+		return readCnf(path, new DimacsVariableDirectory(DimacsVariableDirectory.Syntax.OLD));
+	}
+
+	private static ParsedCnf readCnf(Path path, DimacsVariableDirectory dimacsVariables) throws IOException {
 		final List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
 		Variables variables = null;
-		final DimacsVariableDirectory dimacsVariables = new DimacsVariableDirectory();
 		final List<LiteralSet> clauses = new ArrayList<>();
 		boolean dimacsInput = false;
 
@@ -260,6 +272,7 @@ public final class TWiseCli {
 		System.out.println("  --seed <n>              Random seed. Default: 112358.");
 		System.out.println("  --progress              Force the progress bar, even when stderr is redirected.");
 		System.out.println("  --no-progress           Disable the progress bar. By default, it is shown on interactive consoles.");
+		System.out.println("  --old-dimacs            Read old DIMACS variable comments such as 'c 1 Feature'.");
 		System.out.println("  --help                  Show this help.");
 		System.out.println();
 		System.out.println("CNF input:");
@@ -284,10 +297,11 @@ public final class TWiseCli {
 		private long seed = 112358L;
 		private Boolean progress;
 		private boolean help;
+		private boolean oldDimacs;
 
 		private static Options parse(String[] args) {
 			final Options options = new Options();
-			final Set<String> noValueOptions = new LinkedHashSet<>(Arrays.asList("--progress", "--no-progress", "--help"));
+			final Set<String> noValueOptions = new LinkedHashSet<>(Arrays.asList("--progress", "--no-progress", "--old-dimacs", "--help"));
 			for (int i = 0; i < args.length; i++) {
 				final String arg = args[i];
 				if (noValueOptions.contains(arg)) {
@@ -295,6 +309,8 @@ public final class TWiseCli {
 						options.progress = Boolean.TRUE;
 					} else if ("--no-progress".equals(arg)) {
 						options.progress = Boolean.FALSE;
+					} else if ("--old-dimacs".equals(arg)) {
+						options.oldDimacs = true;
 					} else if ("--help".equals(arg)) {
 						options.help = true;
 					}
@@ -500,18 +516,50 @@ public final class TWiseCli {
 	}
 
 	private static final class DimacsVariableDirectory {
+		private enum Syntax {
+			OLD,
+			NEW
+		}
+
+		private final Syntax syntax;
 		private final List<String> names = new ArrayList<>();
 		private final Set<Integer> realFeatureVariables = new LinkedHashSet<>();
 		private boolean hasVariableMapping;
 
+		private DimacsVariableDirectory(Syntax syntax) {
+			this.syntax = syntax;
+		}
+
 		private void parse(String line) {
-			final Matcher matcher = DIMACS_VARIABLE_COMMENT.matcher(line);
+			if (syntax == Syntax.OLD) {
+				parseOldDimacsVariableComment(line);
+			} else {
+				parseNewDimacsVariableComment(line);
+			}
+		}
+
+		private void parseOldDimacsVariableComment(String line) {
+			final Matcher matcher = OLD_DIMACS_VARIABLE_COMMENT.matcher(line);
 			if (!matcher.matches()) {
 				return;
 			}
 			final int variable = Integer.parseInt(matcher.group(1));
 			final boolean auxiliary = !matcher.group(2).isEmpty();
 			final String name = matcher.group(3).trim();
+			addVariable(variable, name, auxiliary);
+		}
+
+		private void parseNewDimacsVariableComment(String line) {
+			final Matcher matcher = NEW_DIMACS_VARIABLE_COMMENT.matcher(line);
+			if (!matcher.matches()) {
+				return;
+			}
+			final int variable = Integer.parseInt(matcher.group(1));
+			final String name = matcher.group(2).trim();
+			addVariable(variable, name, isAuxiliaryVariableName(name));
+		}
+
+		private void addVariable(int variable, String name, boolean auxiliary) {
 			if (name.isEmpty()) {
 				return;
 			}
@@ -521,6 +569,10 @@ public final class TWiseCli {
 			if (!auxiliary) {
 				realFeatureVariables.add(variable);
 			}
+		}
+
+		private boolean isAuxiliaryVariableName(String name) {
+			return name.startsWith("__");
 		}
 
 		private String getName(int variable) {
