@@ -27,7 +27,6 @@ public final class TWiseCli {
 
 	private static final String MAIN_CLASS = "example.TWiseCli";
 	private static final Pattern OLD_DIMACS_VARIABLE_COMMENT = Pattern.compile("^c\\s+(\\d+)(\\$?)\\s+(.+)$");
-	private static final Pattern NEW_DIMACS_VARIABLE_COMMENT = Pattern.compile("^c\\s+var\\s+(\\d+)\\s+(.+)$");
 
 	private TWiseCli() {
 	}
@@ -43,6 +42,11 @@ public final class TWiseCli {
 		}
 
 		final ParsedCnf input = options.cnfFile == null ? new ParsedCnf(createExampleCnf(), null) : readCnf(options.cnfFile, options.oldDimacs);
+		
+		System.err.println("Read " + input.cnf.getVariables().size() + " variables from DIMACS file of which " + 
+			input.realFeatureVariables.size() + " are real feature variables."
+		);
+		
 		final CNF cnf = input.cnf;
 		final TWiseConfigurationGenerator generator = input.hasFeatureFilter()
 			? new TWiseConfigurationGenerator(cnf, TWiseConfigurationGenerator.convertLiterals(input.createCoverageLiterals()), options.t, options.limit)
@@ -525,6 +529,7 @@ public final class TWiseCli {
 		private final List<String> names = new ArrayList<>();
 		private final Set<Integer> realFeatureVariables = new LinkedHashSet<>();
 		private boolean hasVariableMapping;
+		private static int debugCount = 0;
 
 		private DimacsVariableDirectory(Syntax syntax) {
 			this.syntax = syntax;
@@ -550,13 +555,21 @@ public final class TWiseCli {
 		}
 
 		private void parseNewDimacsVariableComment(String line) {
-			final Matcher matcher = NEW_DIMACS_VARIABLE_COMMENT.matcher(line);
-			if (!matcher.matches()) {
-				return;
-			}
-			final int variable = Integer.parseInt(matcher.group(1));
-			final String name = matcher.group(2).trim();
-			addVariable(variable, name, isAuxiliaryVariableName(name));
+			String[] args = line
+				.trim()
+				.replace("\n", "")
+				.replace("\r", "")
+				.split("\\s+");
+
+			// Example line: "c var 123 CONFIG_ABC"
+			if (!args[1].equals("var")) return;
+
+			assert args.length == 4;
+
+			Integer variableId = Integer.parseInt(args[2]);
+			String configName = args[3];
+
+			addVariable(variableId, configName, isAuxiliaryVariableName(configName));
 		}
 
 		private void addVariable(int variable, String name, boolean auxiliary) {
